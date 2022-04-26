@@ -1,3 +1,5 @@
+These are some kubernetes experiments from 2017
+
 Set up the secrets.
 
 //Dev env.
@@ -6,8 +8,8 @@ dev/setup.sh
 //Production env.
 prod/setup.sh
 
-Now Change the secret values and base64 encode them.
-(Also, encode the USERNAME:AUTHTOKEN in the registry file before encoding the entire json string.)
+Now Change the secret values (in dev/secrets and prod/secrets) and base64 encode them.
+(Also, encode the USERNAME:AUTHTOKEN in the registry file before encoding the entire json string)
 
 *****************************************
 Tips & Tricks --------------------------
