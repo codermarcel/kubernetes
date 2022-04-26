@@ -1,0 +1,68 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  # namespace: nodejs
+  name: nginx-php-deployment
+  labels:
+    app: nginx-php-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx-php-pod
+      name: nginx-php-pod
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+            {
+                "name": "init-mysql",
+                "image": "busybox",
+                "imagePullPolicy": "Always",
+                "command": ["sh", "-c", "until nslookup php; do echo waiting for php2; sleep 2; done;"]
+            }
+        ]'
+    spec:
+      containers:
+        - name: nginx-app
+          image: nginx:1.11-alpine
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/usr/sbin/nginx", "-s", "quit"]
+          ports:
+            - containerPort: 80 #nginx exposes port 80
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200M
+            limits:
+              cpu: 250m
+              memory: 300M
+          volumeMounts:
+            - name: nginx
+              mountPath: "/etc/nginx/conf.d"
+            # - name: tls
+            #   mountPath: "/etc/tls"
+      volumes:
+      # - name: tls
+      #   secret:
+      #     secretName: "some.secret.name"
+      - name: nginx #the virtual server configuration (proxy pass to php)
+        configMap:
+          name: nginx
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  # namespace: nodeapp
+  name: php-app #name of the service // the nginx instance
+spec:
+  selector:
+    app: nginx-php-pod #name of the pod.
+  ports:
+    - protocol: TCP
+      port: 6666
+      targetPort: 80
+      nodePort: 30060
+  type: NodePort #ClusterIP, ExternalName, NodePort, LoadBalancer

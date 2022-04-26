@@ -1,0 +1,185 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  # namespace: nodejs
+  name: php-deployment
+  labels:
+    app: php-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: php-pod
+      name: php-pod
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+            {
+                "name": "init-mysql",
+                "image": "busybox",
+                "imagePullPolicy": "Always",
+                "command": ["sh", "-c", "until nslookup mysql; do echo waiting for mysql; sleep 2; done;"]
+            },
+            {
+                "name": "db-migrations",
+                "image": "gretaburpbonus/go_migrate:0.35",
+                "imagePullPolicy": "Always",
+                "restartPolicy": "Never",
+                "command": ["/server"],
+                "env": [
+                  {
+                    "name": "DB_HOSTNAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_host"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PORT",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_port"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_DATABASE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_name"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_root_password"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_root_user"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_DATABASE_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "php_db"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_USER_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "php_user"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "php_pass"
+                        }
+                    }
+                  }
+                ]
+            }
+        ]'
+    spec:
+      imagePullSecrets:
+        - name: registry.gitlab.com
+
+      containers:
+        - name: php-app
+          image: registry.gitlab.com/snowy-tag-tilth/lumen_test:v0.1
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200M
+            limits:
+              cpu: 250m
+              memory: 300M
+          env:
+            - name: APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: php_app_key
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_port
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_host
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: php_pass
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: php_user
+            - name: DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: php_db
+            - name: DB_CONNECTION
+              value: mysql
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - mountPath: /app
+              name: volume
+
+      # volumes:
+      # - name: git-volume
+      #   gitRepo:
+      #     #repository: "git@github.com:greta-burp-bonus/go_migrate.git"
+      #     repository: "https://github.com/greta-burp-bonus/go_migrate.git"
+      #     revision: "397c319f9b32b5dff37c42e2467bc9bf380971de"
+      volumes:
+        - hostPath:
+            path: /hosthome/user/code/lumen_test/src #minikube mounts /home to /hosthome
+          name: volume
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  # namespace: nodeapp
+  name: php #name of the service
+spec:
+  selector:
+    app: php-pod #name of the pod.
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
+      nodePort: 30070
+  type: NodePort #ClusterIP, ExternalName, NodePort, LoadBalancer

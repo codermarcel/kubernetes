@@ -1,0 +1,169 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  # namespace: nodejs
+  name: go-deployment
+  labels:
+    app: go-deployment2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: go
+      name: go
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+            {
+                "name": "init-mysql",
+                "image": "busybox",
+                "imagePullPolicy": "Always",
+                "command": ["sh", "-c", "until nslookup mysql; do echo waiting for mysql; sleep 2; done;"]
+            },
+            {
+                "name": "db-migrations",
+                "image": "gretaburpbonus/go_migrate:0.35",
+                "imagePullPolicy": "Always",
+                "restartPolicy": "Never",
+                "command": ["/server"],
+                "env": [
+                  {
+                    "name": "DB_HOSTNAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_host"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PORT",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_port"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_DATABASE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_name"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_root_password"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_root_user"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_DATABASE_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "go_db"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_USER_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "go_user"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "go_pass"
+                        }
+                    }
+                  }
+                ]
+            }
+        ]'
+    spec:
+      containers:
+        - name: goapp
+          image: gretaburpbonus/gotest:0.3
+          command: [
+            "/server",
+          ]
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200M
+            limits:
+              cpu: 250m
+              memory: 300M
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_host
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_port
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: go_pass
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: go_user
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: go_db
+          ports:
+            - containerPort: 8084
+      #     volumeMounts:
+      #       - mountPath: /var/lib/mysql
+      #         name: mysql
+      # volumes:
+      #   - name: "mysql"
+      #     persistentVolumeClaim:
+      #       claimName: mysql
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  # namespace: nodeapp
+  name: go #name of the service
+spec:
+  selector:
+    app: go
+  ports:
+    - protocol: TCP
+      port: 4444
+      targetPort: 8084
+      nodePort: 30020
+  type: NodePort #ClusterIP, ExternalName, NodePort, LoadBalancer

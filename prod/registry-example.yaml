@@ -1,0 +1,10 @@
+apiVersion: v1
+data:
+  .dockercfg: {"https://registry.gitlab.com/v1/":{"username":"username","password":"ACCESS_TOKEN","email":"EMAIL","auth":"USERNAME:ACCESS_TOKEN"}}
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: registry.gitlab.com
+type: kubernetes.io/dockercfg
+
+#Don't forget to BASE64 encode the USERNAME:AUTH_TOKEN and then base64 encode the entire string.

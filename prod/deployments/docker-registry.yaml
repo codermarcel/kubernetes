@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: registry.gitlab.com
+data:
+  .dockercfg: ewogICAgICAiYXV0aHMiOiB7CiAgICAgICAgICAiaHR0cHM6Ly9yZWdpc3RyeS5naXRsYWIuY29tL3YxLyI6IHsKICAgICAgICAgICAgICAiYXV0aCI6ICJjMjV2ZDNrdGRHRm5MWFJwYkhSb09tbzJNVFJYVUdOYU16TkxUbFZmUVhjNFdFVlUiCiAgICAgICAgICB9CiAgICAgIH0KICB9
+type: kubernetes.io/dockercfg
+
+#base64 encode the USERNAME:AUTH_TOKEN !! Then also base64 encode the entire json string.

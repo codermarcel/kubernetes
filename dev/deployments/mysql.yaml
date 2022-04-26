@@ -1,0 +1,72 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  # namespace: nodeapp
+  name: mysql-deployment
+  labels:
+    app: mysql-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql
+      name: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:5.6.32
+          resources:
+            requests:
+              cpu: 0.3
+              memory: 300M
+            limits:
+              cpu: 0.5
+              memory: 500M
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_root_password
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_password
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_username
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_name
+          ports:
+            - containerPort: 3306
+              # hostPort: 1333
+      #     volumeMounts:
+      #       - mountPath: /var/lib/mysql
+      #         name: mysql
+      # volumes:
+      #   - name: "mysql"
+      #     persistentVolumeClaim:
+      #       claimName: mysql
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  # namespace: nodeapp
+  name: mysql #name of the service
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+      nodePort: 30001
+  type: NodePort #ClusterIP, ExternalName, NodePort, LoadBalancer

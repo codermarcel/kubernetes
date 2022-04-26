@@ -1,0 +1,171 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  # namespace: nodejs
+  name: nodejs-deployment
+  labels:
+    app: nodejs-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nodejs
+      name: nodejs
+      annotations:
+        pod.beta.kubernetes.io/init-containers: '[
+            {
+                "name": "init-mysql",
+                "image": "busybox",
+                "imagePullPolicy": "Always",
+                "command": ["sh", "-c", "until nslookup mysql; do echo waiting for mysql; sleep 2; done;"]
+            },
+            {
+                "name": "db-migrations",
+                "image": "gretaburpbonus/go_migrate:0.35",
+                "imagePullPolicy": "Always",
+                "restartPolicy": "Never",
+                "command": ["/server"],
+                "env": [
+                  {
+                    "name": "DB_HOSTNAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_host"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PORT",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_port"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_DATABASE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_name"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_root_password"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "db_root_user"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_DATABASE_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "nodejs_db"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_USER_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "nodejs_user"
+                        }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD_TO_CREATE",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "app-secrets",
+                            "key": "nodejs_pass"
+                        }
+                    }
+                  }
+                ]
+            }
+        ]'
+    spec:
+      containers:
+        - name: nodejsapp
+          image: gretaburpbonus/nodejs_test:0.1
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200M
+            limits:
+              cpu: 250m
+              memory: 300M
+          env:
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_port
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: db_host
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: nodejs_pass
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: nodejs_user
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: nodejs_db
+            - name: NODE_CONNECTION_LIMIT
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: nodejs_connection_limit
+          ports:
+            - containerPort: 8080
+      #     volumeMounts:
+      #       - mountPath: /var/lib/mysql
+      #         name: mysql
+      # volumes:
+      #   - name: "mysql"
+      #     persistentVolumeClaim:
+      #       claimName: mysql
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  # namespace: nodeapp
+  name: nodejs #name of the service
+spec:
+  selector:
+    app: nodejs
+  ports:
+    - protocol: TCP
+      port: 3333
+      targetPort: 8080
+      nodePort: 30030
+  type: NodePort #ClusterIP, ExternalName, NodePort, LoadBalancer
